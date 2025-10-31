@@ -4,6 +4,8 @@ import engine.rendering.Camera;
 import engine.world.World;
 import engine.world.Chunk;
 import engine.world.Block;
+import engine.world.BlockType;
+
 import org.joml.Vector3f;
 
 /**
@@ -65,7 +67,7 @@ public class PhysicsEngine {
         for (float z = minZ; z <= maxZ; z += 0.3f)
         for (float y = minY; y <= maxY; y += 0.3f) {
             Block block = getBlockAt(world, x, y, z);
-            if (block != null && block.getType() != Block.Type.AIR) {
+            if (block != null && block.getType() != BlockType.AIR) {
                 collidedY = true;
                 break;
             }
@@ -101,7 +103,7 @@ public class PhysicsEngine {
         for (float z = minZ; z <= maxZ; z += 0.3f)
         for (float y = minY; y <= maxY; y += 0.3f) {
             Block block = getBlockAt(world, x, y, z);
-            if (block != null && block.getType() != Block.Type.AIR) {
+            if (block != null && block.getType() != BlockType.AIR) {
                 return false;
             }
         }
@@ -124,7 +126,7 @@ public class PhysicsEngine {
         for (float z = minZ; z <= maxZ; z += 0.3f)
         for (float y = minY; y <= maxY; y += 0.3f) {
             Block block = getBlockAt(world, x, y, z);
-            if (block != null && block.getType() != Block.Type.AIR) {
+            if (block != null && block.getType() != BlockType.AIR) {
                 return false;
             }
         }

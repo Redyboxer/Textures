@@ -3,51 +3,125 @@ package engine.rendering;
 import engine.world.World;
 import engine.world.Chunk;
 import engine.world.Block;
+import engine.world.BlockType;
 import org.lwjgl.opengl.*;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.FloatBuffer;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Renderer {
     private World world;
     private Camera camera;
     private ShaderProgram shader;
+    private Map<String, Texture> textures = new HashMap<>();
 
     private int vaoId;
     private int vboId;
 
-    // Vertex data for each face (2 triangles per face, 6 vertices)
-    private static final float[][] FACE_VERTICES = {
-        // Top (+Y)
-        {0,1,0, 1,1,0, 1,1,1, 0,1,0, 1,1,1, 0,1,1},
-        // Bottom (-Y)
-        {0,0,0, 1,0,0, 1,0,1, 0,0,0, 1,0,1, 0,0,1},
-        // Left (-X)
-        {0,0,0, 0,0,1, 0,1,1, 0,0,0, 0,1,1, 0,1,0},
-        // Right (+X)
-        {1,0,0, 1,0,1, 1,1,1, 1,0,0, 1,1,1, 1,1,0},
-        // Front (-Z)
-        {0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,1,0},
-        // Back (+Z)
-        {0,0,1, 1,0,1, 1,1,1, 0,0,1, 1,1,1, 0,1,1}
+    public enum FaceVertices {
+        TOP(new float[]{0,1,0,0,0,1,1,0,1,0,1,1,1,1,1,0,1,0,0,0,1,1,1,1,1,0,1,1,0,1}),
+        BOTTOM(new float[]{0,0,0,0,0,1,0,0,1,0,1,0,1,1,1,0,0,0,0,0,1,0,1,1,1,0,0,1,0,1}),
+        LEFT(new float[]{0,0,0,0,0,0,0,1,1,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,1,0,0,1}),
+        RIGHT(new float[]{1,0,0,0,0,1,0,1,1,0,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,0,0,1}),
+        FRONT(new float[]{0,0,0,0,0,1,0,0,1,0,1,1,0,1,1,0,0,0,0,0,1,1,0,1,1,0,1,0,0,1}),
+        BACK(new float[]{0,0,1,0,0,1,0,1,1,0,1,1,1,1,1,0,0,1,0,0,1,1,1,1,1,0,1,1,0,1});
+    	
+    	private final float[] vertices;
+
+        FaceVertices(float[] vertices) {
+            this.vertices = vertices;
+        }
+
+        public static float[] get(int face) {
+        	switch(face) {
+        	case 0: {
+        		return TOP.vertices;
+        	}
+        	case 1: {
+        		return BOTTOM.vertices;
+        	}
+        	case 2: {
+        		return LEFT.vertices;
+        	}
+        	case 3: {
+        		return RIGHT.vertices;
+        	}
+        	case 4: {
+        		return FRONT.vertices;
+        	}
+        	case 5: {
+        		return BACK.vertices;
+        	}
+        	default: {
+        		return new float[]{};
+        	}
+        	}
+        }
     };
 
-    // Face directions: [dx, dy, dz]
-    private static final int[][] FACE_DIRECTIONS = {
-        {0, 1, 0},   // Top
-        {0, -1, 0},  // Bottom
-        {-1, 0, 0},  // Left
-        {1, 0, 0},   // Right
-        {0, 0, -1},  // Front
-        {0, 0, 1}    // Back
-    };
+    public enum FaceDirection {
+        TOP(0, 1, 0),
+        BOTTOM(0, -1, 0),
+        LEFT(-1, 0, 0),
+        RIGHT(1, 0, 0),
+        FRONT(0, 0, -1),
+        BACK(0, 0, 1);
+
+        public final int dx, dy, dz;
+
+        FaceDirection(int dx, int dy, int dz) {
+            this.dx = dx;
+            this.dy = dy;
+            this.dz = dz;
+        }
+
+        public int[] toArray() {
+            return new int[] { dx, dy, dz };
+        }
+        public static int[] get(int face) {
+        	switch(face) {
+        	case 0: {
+        		return TOP.toArray();
+        	}
+        	case 1: {
+        		return BOTTOM.toArray();
+        	}
+        	case 2: {
+        		return LEFT.toArray();
+        	}
+        	case 3: {
+        		return RIGHT.toArray();
+        	}
+        	case 4: {
+        		return FRONT.toArray();
+        	}
+        	case 5: {
+        		return BACK.toArray();
+        	}
+        	default: {
+        		return new int[]{};
+        	}
+        	}
+        }
+    }
 
     public Renderer(World world, Camera camera) {
         this.world = world;
         this.camera = camera;
         setupGL();
         setupShaders();
+        loadTextures();
+    }
+
+    private void loadTextures() {
+    	// We should do this automatically..
+        textures.put("grass_top.png", new Texture("./resources/textures/grass_top.png"));
+        textures.put("grass_side.png", new Texture("./resources/textures/grass_side.png"));
+        textures.put("dirt.png", new Texture("./resources/textures/dirt.png"));
+        textures.put("stone.png", new Texture("./resources/textures/stone.png"));
     }
 
     private void setupGL() {
@@ -67,18 +141,22 @@ public class Renderer {
         String vertexSrc =
                 "#version 330 core\n" +
                 "layout(location = 0) in vec3 position;\n" +
+                "layout(location = 1) in vec2 texCoord;\n" +
+                "out vec2 vTexCoord;\n" +
                 "uniform mat4 projection;\n" +
                 "uniform mat4 view;\n" +
                 "uniform mat4 model;\n" +
                 "void main() {\n" +
-                "    gl_Position = projection * view * model * vec4(position, 1.3);\n" +
+                "    gl_Position = projection * view * model * vec4(position, 1.0);\n" +
+                "    vTexCoord = texCoord;\n" +
                 "}";
         String fragmentSrc =
                 "#version 330 core\n" +
+                "in vec2 vTexCoord;\n" +
                 "out vec4 FragColor;\n" +
-                "uniform vec3 blockColor;\n" +
+                "uniform sampler2D blockTexture;\n" +
                 "void main() {\n" +
-                "    FragColor = vec4(blockColor, 1.0);\n" +
+                "    FragColor = texture(blockTexture, vTexCoord);\n" +
                 "}";
         shader = new ShaderProgram(vertexSrc, fragmentSrc);
     }
@@ -103,12 +181,11 @@ public class Renderer {
         MemoryUtil.memFree(viewBuffer);
 
         GL30.glBindVertexArray(vaoId);
-        
+
+        // Dynamically pick chunk range around camera
         int cameraChunkX = Math.floorDiv((int)camera.getPosition().x, Chunk.SIZE);
         int cameraChunkZ = Math.floorDiv((int)camera.getPosition().z, Chunk.SIZE);
-
-        int renderRadius = 2;
-        
+        int renderRadius = camera.getRenderDistance();
         for (int cx = cameraChunkX - renderRadius; cx <= cameraChunkX + renderRadius; cx++) {
             for (int cz = cameraChunkZ - renderRadius; cz <= cameraChunkZ + renderRadius; cz++) {
                 Chunk chunk = world.getChunk(cx, cz);
@@ -117,11 +194,8 @@ public class Renderer {
                     for (int y = 0; y < Chunk.SIZE; y++) {
                         for (int z = 0; z < Chunk.SIZE; z++) {
                             Block block = chunk.getBlock(x, y, z);
-                            if (block.getType() == Block.Type.AIR) continue;
-
-                            int colorLoc = GL20.glGetUniformLocation(shader.getProgramId(), "blockColor");
-                            float[] color = getColorForBlock(block.getType());
-                            GL20.glUniform3f(colorLoc, color[0], color[1], color[2]);
+                            if (block.getType() == null) continue;
+                            if (block.getType() == BlockType.AIR) continue;
 
                             int modelLoc = GL20.glGetUniformLocation(shader.getProgramId(), "model");
                             Matrix4f model = new Matrix4f().translation(
@@ -134,17 +208,26 @@ public class Renderer {
                             GL20.glUniformMatrix4fv(modelLoc, false, modelBuffer);
                             MemoryUtil.memFree(modelBuffer);
 
-                            // For each face, check if that face should be rendered (AIR neighbor only)
                             for (int face = 0; face < 6; face++) {
-                                if (shouldRenderFace(world, cx, cz, x, y, z, FACE_DIRECTIONS[face])) {
-                                    FloatBuffer faceBuffer = MemoryUtil.memAllocFloat(18);
-                                    faceBuffer.put(FACE_VERTICES[face]).flip();
+                                if (shouldRenderFace(world, cx, cz, x, y, z, FaceDirection.get(face))) {
+                                    String texName = block.getType().getTextureForFace(face);
+                                    Texture texture = textures.get(texName);
+                                    if (texture != null) {
+                                        texture.bind();
+                                        int texLoc = GL20.glGetUniformLocation(shader.getProgramId(), "blockTexture");
+                                        GL20.glUniform1i(texLoc, 0); // Texture unit 0
+                                    }
+
+                                    FloatBuffer faceBuffer = MemoryUtil.memAllocFloat(6 * 5); // 6 vertices, 3 pos + 2 uv
+                                    faceBuffer.put(FaceVertices.get(face)).flip();
 
                                     GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vboId);
                                     GL15.glBufferData(GL15.GL_ARRAY_BUFFER, faceBuffer, GL15.GL_STREAM_DRAW);
 
                                     GL20.glEnableVertexAttribArray(0);
-                                    GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 0, 0);
+                                    GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 5 * Float.BYTES, 0);
+                                    GL20.glEnableVertexAttribArray(1);
+                                    GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 5 * Float.BYTES, 3 * Float.BYTES);
 
                                     GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6);
 
@@ -179,22 +262,14 @@ public class Renderer {
         Chunk neighborChunk = world.getChunk(neighborChunkX, neighborChunkZ);
 
         if (neighborChunk == null || localX < 0 || localX >= Chunk.SIZE || localY < 0 || localY >= Chunk.SIZE || localZ < 0 || localZ >= Chunk.SIZE)
-            return true; // Out of bounds, treat as AIR
+            return false; // Out of bounds, treat as AIR
         Block neighbor = neighborChunk.getBlock(localX, localY, localZ);
-        return neighbor == null || neighbor.getType() == Block.Type.AIR;
-    }
-
-    private float[] getColorForBlock(Block.Type type) {
-        switch (type) {
-            case STONE: return new float[]{0.5f, 0.5f, 0.5f};
-            case DIRT: return new float[]{0.6f, 0.4f, 0.2f};
-            case GRASS: return new float[]{0.2f, 0.8f, 0.1f};
-            default: return new float[]{1f, 1f, 1f};
-        }
+        return neighbor == null || neighbor.getType() == BlockType.AIR;
     }
 
     public void cleanup() {
         shader.delete();
+        for (Texture texture : textures.values()) texture.cleanup();
         GL15.glDeleteBuffers(vboId);
         GL30.glDeleteVertexArrays(vaoId);
     }

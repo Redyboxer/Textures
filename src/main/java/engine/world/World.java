@@ -33,10 +33,10 @@ public class World implements Serializable {
                 int wz = cz * Chunk.SIZE + z;
                 int height = 8 + (int)(4 * Math.sin(wx * 0.13) + 4 * Math.cos(wz * 0.11));
                 for (int y = 0; y < Chunk.SIZE; y++) {
-                    if (y < height - 3) chunk.setBlock(x, y, z, new Block(Block.Type.STONE));
-                    else if (y < height - 1) chunk.setBlock(x, y, z, new Block(Block.Type.DIRT));
-                    else if (y == height - 1) chunk.setBlock(x, y, z, new Block(Block.Type.GRASS));
-                    else chunk.setBlock(x, y, z, new Block(Block.Type.AIR));
+                    if (y < height - 3) chunk.setBlock(x, y, z, new Block(BlockType.STONE));
+                    else if (y < height - 1) chunk.setBlock(x, y, z, new Block(BlockType.DIRT));
+                    else if (y == height - 1) chunk.setBlock(x, y, z, new Block(BlockType.GRASS));
+                    else chunk.setBlock(x, y, z, new Block(BlockType.AIR));
                 }
             }
         }
@@ -53,12 +53,6 @@ public class World implements Serializable {
                 it.remove(); // Unload chunk
             }
         }
-    }
-
-    // Basic "heightmap" function, replace with Perlin/Simplex for realism!
-    private int getHeight(int worldX, int worldZ) {
-        // Simple pseudo-random hills
-        return 8 + (int)(4 * Math.sin(worldX * 0.13) + 4 * Math.cos(worldZ * 0.11));
     }
 
     // Save/load world
