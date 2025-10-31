@@ -9,7 +9,7 @@ public class Camera {
     private Matrix4f projection;
     private final float FOV = 70f;
     private final float NEAR = 0.1f;
-    private final float FAR = 1000f;
+    private final float FAR = 100f;
     private int width, height;
 
     public Camera(int width, int height) {

@@ -103,9 +103,14 @@ public class Renderer {
         MemoryUtil.memFree(viewBuffer);
 
         GL30.glBindVertexArray(vaoId);
+        
+        int cameraChunkX = Math.floorDiv((int)camera.getPosition().x, Chunk.SIZE);
+        int cameraChunkZ = Math.floorDiv((int)camera.getPosition().z, Chunk.SIZE);
 
-        for (int cx = -1; cx <= 1; cx++) {
-            for (int cz = -1; cz <= 1; cz++) {
+        int renderRadius = 2;
+        
+        for (int cx = cameraChunkX - renderRadius; cx <= cameraChunkX + renderRadius; cx++) {
+            for (int cz = cameraChunkZ - renderRadius; cz <= cameraChunkZ + renderRadius; cz++) {
                 Chunk chunk = world.getChunk(cx, cz);
                 if (chunk == null) continue;
                 for (int x = 0; x < Chunk.SIZE; x++) {

@@ -2,6 +2,7 @@ package engine.world;
 
 import java.io.*;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 public class World implements Serializable {
@@ -40,6 +41,18 @@ public class World implements Serializable {
             }
         }
         return chunk;
+    }
+    
+    public void unloadFarChunks(int playerChunkX, int playerChunkZ, int renderRadius) {
+        Iterator<Map.Entry<Long, Chunk>> it = chunks.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<Long, Chunk> entry = it.next();
+            int cx = (int)(entry.getKey() >> 32);
+            int cz = (int)(entry.getKey() & 0xffffffffL);
+            if (Math.abs(cx - playerChunkX) > renderRadius + 2 || Math.abs(cz - playerChunkZ) > renderRadius + 2) {
+                it.remove(); // Unload chunk
+            }
+        }
     }
 
     // Basic "heightmap" function, replace with Perlin/Simplex for realism!
